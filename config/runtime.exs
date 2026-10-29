@@ -37,8 +37,7 @@ if config_env() == :prod do
       port: port
     ],
     secret_key_base: secret_key_base,
-    check_origin: ["https://#{host}"],
-    force_ssl: [rewrite_on: [:x_forwarded_proto], exclude: ["/health"]]
+    check_origin: ["https://#{host}"]
 
   account = System.get_env("LITESTREAM_AZURE_ACCOUNT_NAME")
   key = System.get_env("LITESTREAM_AZURE_ACCOUNT_KEY")
