@@ -11,17 +11,34 @@
       :root { color-scheme: dark; }
       body {
         font-family: Georgia, "Times New Roman", serif;
-        max-width: 40rem;
-        margin: 3rem auto;
-        padding: 0 1.25rem;
-        line-height: 1.5;
+        margin: 2rem 1.25rem 3rem;
+        line-height: 1.4;
         background: #111;
         color: #eee;
       }
-      h1 { font-weight: 600; letter-spacing: -0.02em; }
-      ol { padding-left: 1.25rem; }
-      .this { color: #9f9; }
-      .muted { color: #888; font-size: 0.95rem; }
+      h1 { font-weight: 600; letter-spacing: -0.02em; margin: 0 0 0.35rem; }
+      .muted { color: #888; font-size: 0.95rem; margin: 0 0 1rem; }
+      .tabs { display: flex; gap: 0.4rem; margin: 1.25rem 0 1rem; }
+      .tab {
+        font: inherit;
+        color: #ccc;
+        background: #1c1c1c;
+        border: 1px solid #333;
+        padding: 0.35rem 0.8rem;
+        cursor: pointer;
+      }
+      .tab.on { color: #111; background: #cfc; border-color: #9f9; }
+      .board { overflow-x: auto; }
+      table { border-collapse: collapse; font-size: 0.82rem; }
+      th, td {
+        border: 1px solid #333;
+        padding: 0.35rem 0.45rem;
+        white-space: nowrap;
+        text-align: center;
+      }
+      thead th { background: #1a1a1a; font-weight: 600; }
+      tbody th { text-align: left; background: #181818; }
+      tr.winners th, tr.winners td { background: #243024; color: #cfc; }
     </style>
   </head>
   <body>

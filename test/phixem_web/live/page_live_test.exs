@@ -3,26 +3,36 @@ defmodule PhixemWeb.PageLiveTest do
 
   import Phoenix.LiveViewTest
 
-  test "connected mount records a page load", %{conn: conn} do
+  setup do
+    Phixem.Pickem.seed!()
+    :ok
+  end
+
+  test "upcoming week shows PERFECT winners and seed entries", %{conn: conn} do
+    {:ok, view, html} = live(conn, ~p"/")
+
+    assert html =~ "Upcoming week"
+    assert html =~ "CAR@GB"
+    assert html =~ "CHI@SEA"
+    assert html =~ "PERFECT"
+    assert html =~ "morpheus"
+    assert html =~ "Big Daddy"
+    assert html =~ "Neo"
+    assert render(view) =~ "GB"
+  end
+
+  test "last week tab shows completed winners without player seed rows", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/")
-    assert render(view) =~ "1 load(s) recorded"
-    assert render(view) =~ "latest"
+    html = render_click(view, "select_tab", %{"tab" => "last_week"})
+
+    assert html =~ "NE@CHI"
+    assert html =~ "DAL@PHI"
+    assert html =~ "38-21"
+    refute html =~ "morpheus"
   end
 
-  test "a second LiveView updates the first without a full page reload", %{conn: conn} do
-    {:ok, view1, _html} = live(conn, ~p"/")
-    assert render(view1) =~ "1 load(s) recorded"
-
-    {:ok, view2, _html} = live(build_conn(), ~p"/")
-    assert render(view2) =~ "2 load(s) recorded"
-    assert render(view1) =~ "2 load(s) recorded"
-  end
-
-  test "GET /health does not record a page load", %{conn: conn} do
+  test "GET /health still works", %{conn: conn} do
     conn = get(conn, ~p"/health")
     assert text_response(conn, 200) == "ok"
-
-    {:ok, view, _html} = live(build_conn(), ~p"/")
-    assert render(view) =~ "1 load(s) recorded"
   end
 end
