@@ -1,0 +1,12 @@
+<h1>Broncos admin</h1>
+
+<p :if={@error} class="admin-error">{@error}</p>
+
+<form action={~p"/broncosAdmin"} method="post">
+  <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+  <label>
+    Passphrase
+    <input type="password" name="passphrase" autocomplete="current-password" />
+  </label>
+  <button type="submit">Enter</button>
+</form>

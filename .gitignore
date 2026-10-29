@@ -13,3 +13,4 @@ phixem-*.tar
 .env
 .env.*
 !.env.example
+/priv/nfl/week*.json

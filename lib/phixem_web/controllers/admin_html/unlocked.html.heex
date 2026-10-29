@@ -1,0 +1,87 @@
+<section id="admin-ok">
+  <h1>Broncos admin</h1>
+
+  <p :if={info = Phoenix.Flash.get(@flash || %{}, :info)}>{info}</p>
+  <p :if={error = Phoenix.Flash.get(@flash || %{}, :error)} class="admin-error">{error}</p>
+
+  <div class="tabs" role="tablist">
+    <a
+      :for={week <- @weeks}
+      href={~p"/broncosAdmin?week=#{week.number}"}
+      class={if @week && @week.number == week.number, do: "tab on", else: "tab"}
+    >
+      Week {week.number}
+    </a>
+  </div>
+
+  <section :if={@week} class="perfect-form">
+    <h2>PERFECT — Week {@week.number}</h2>
+    <p class="muted">Sunday {@week.starts_on}. Choose the team that actually won each game.</p>
+
+    <form action={~p"/broncosAdmin/perfect"} method="post">
+      <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+      <input type="hidden" name="week" value={@week.number} />
+
+      <div :for={matchup <- Phixem.Pickem.Week.matchup_list(@week)} class="matchup-pick">
+        <span class="matchup-label">{matchup}</span>
+        <label>
+          <input
+            type="radio"
+            name={"winners[#{matchup}]"}
+            value={away_team(matchup)}
+            checked={selected_winner(@winners, matchup) == away_team(matchup)}
+          />
+          {away_team(matchup)}
+        </label>
+        <label>
+          <input
+            type="radio"
+            name={"winners[#{matchup}]"}
+            value={home_team(matchup)}
+            checked={selected_winner(@winners, matchup) == home_team(matchup)}
+          />
+          {home_team(matchup)}
+        </label>
+      </div>
+
+      <button type="submit">Save PERFECT</button>
+    </form>
+  </section>
+
+  <section :if={@week} class="entry-form">
+    <h2>Create entry — Week {@week.number}</h2>
+    <div class="admin-actions">
+      <button type="button" disabled>Upload image / camera</button>
+      <span class="muted">Manual entry</span>
+    </div>
+
+    <form action={~p"/broncosAdmin/entries"} method="post">
+      <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+      <input type="hidden" name="week" value={@week.number} />
+
+      <label>
+        Name
+        <input type="text" name="username" autocomplete="off" />
+      </label>
+
+      <div :for={matchup <- Phixem.Pickem.Week.matchup_list(@week)} class="matchup-pick">
+        <span class="matchup-label">{matchup}</span>
+        <label>
+          <input type="radio" name={"winners[#{matchup}]"} value={away_team(matchup)} />
+          {away_team(matchup)}
+        </label>
+        <label>
+          <input type="radio" name={"winners[#{matchup}]"} value={home_team(matchup)} />
+          {home_team(matchup)}
+        </label>
+      </div>
+
+      <label>
+        Tie-breaker (Monday night game)
+        <input type="text" name="tie_breaker" placeholder="e.g. 45 or 24-21" />
+      </label>
+
+      <button type="submit">Save entry</button>
+    </form>
+  </section>
+</section>

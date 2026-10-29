@@ -3,7 +3,7 @@ defmodule PhixemWeb do
   The entrypoint for defining your web interface.
   """
 
-  def static_paths, do: ~w(assets robots.txt)
+  def static_paths, do: ~w(assets images favicon.png robots.txt)
 
   def router do
     quote do

@@ -4,6 +4,7 @@ defmodule PhixemWeb.Router do
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
+    plug :fetch_flash
     plug :fetch_live_flash
     plug :put_root_layout, html: {PhixemWeb.Layouts, :root}
     plug :protect_from_forgery
@@ -14,6 +15,10 @@ defmodule PhixemWeb.Router do
     pipe_through :browser
 
     get "/health", PageController, :health
+    get "/broncosAdmin", AdminController, :show
+    post "/broncosAdmin", AdminController, :create
+    post "/broncosAdmin/perfect", AdminController, :save_perfect
+    post "/broncosAdmin/entries", AdminController, :save_entry
     live "/", PageLive
   end
 end

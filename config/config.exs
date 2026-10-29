@@ -2,7 +2,9 @@ import Config
 
 config :phixem,
   ecto_repos: [Phixem.Repo],
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime],
+  broncos_admin_salt: "phixem-broncos-admin-v1",
+  broncos_admin_hash: "oEqP2ugoWMCDQ2O1lNVn1FLQer/PwC6unmaPSPd5byc="
 
 config :phixem, PhixemWeb.Endpoint,
   url: [host: "localhost"],
