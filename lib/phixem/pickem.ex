@@ -14,6 +14,18 @@ defmodule Phixem.Pickem do
     |> Repo.preload(entries: from(e in Entry, order_by: [desc: e.winners_row, desc: e.correct_choices, asc: e.username]))
   end
 
+  def empty? do
+    Repo.aggregate(Week, :count) == 0
+  end
+
+  def seed_if_empty! do
+    if empty?() do
+      seed!()
+    else
+      :ok
+    end
+  end
+
   def seed! do
     Repo.delete_all(Entry)
     Repo.delete_all(Week)

@@ -21,7 +21,9 @@ defmodule Phixem.Application do
       |> Enum.reject(&is_nil/1)
 
     opts = [strategy: :one_for_one, name: Phixem.Supervisor]
-    Supervisor.start_link(children, opts)
+    {:ok, pid} = Supervisor.start_link(children, opts)
+    Phixem.Pickem.seed_if_empty!()
+    {:ok, pid}
   end
 
   @impl true
