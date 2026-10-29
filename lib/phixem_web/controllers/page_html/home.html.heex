@@ -1,0 +1,13 @@
+<h1>Phixem</h1>
+<p>
+  Hello world. Each visit to this page is stored in SQLite and replicated to Azure Blob
+  with Litestream. After the container scales to zero, the next request should still
+  list every previous load time.
+</p>
+<p class="muted">{length(@page_loads)} load(s) recorded.</p>
+<ol>
+  <li :for={{load, index} <- Enum.with_index(@page_loads, 1)} class={if index == length(@page_loads), do: "this"}>
+    {Calendar.strftime(load.inserted_at, "%Y-%m-%d %H:%M:%S UTC")}
+    <span :if={index == length(@page_loads)} class="this"> — this request</span>
+  </li>
+</ol>

@@ -1,0 +1,16 @@
+_build
+deps
+.doc
+.git
+.github
+cover
+test
+tmp
+*.db
+*.db-*
+erl_crash.dump
+infra
+README.md
+LICENSE
+.env
+.env.*
