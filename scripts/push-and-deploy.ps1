@@ -1,14 +1,16 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Push main to GitHub, wait for GHCR image build, then update Azure Container Apps.
+  Push main to GitHub, wait until the Deploy workflow publishes the image, then update ACA.
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File .\scripts\push-and-deploy.ps1
 #>
 [CmdletBinding()]
 param(
-  [int]$WaitSeconds = 180,
+  [Alias("WaitSeconds")]
+  [int]$TimeoutSeconds = 900,
+  [int]$PollSeconds = 20,
   [string]$ResourceGroup = "phixem-rg",
   [string]$ContainerApp = "phixem",
   [string]$ImageRepository = "ghcr.io/jasonandrewwakeman/phixem"
@@ -51,10 +53,47 @@ git push origin main
 $sha = (git rev-parse HEAD).Trim()
 $image = "${ImageRepository}:${sha}"
 
-Write-Host "Waiting $WaitSeconds seconds for GitHub Actions to build $image ..."
-Start-Sleep -Seconds $WaitSeconds
+$remote = (git remote get-url origin).Trim()
+if ($remote -notmatch "github.com[:/](?<owner>[^/]+)/(?<repo>[^/.]+)") {
+  throw "Could not parse GitHub owner/repo from origin: $remote"
+}
+$owner = $Matches.owner
+$repo = $Matches.repo
+$runsUrl = "https://api.github.com/repos/$owner/$repo/actions/workflows/deploy.yml/runs?head_sha=$sha&per_page=5"
 
-Write-Host "Updating Azure Container App $ContainerApp ..."
+Write-Host "Waiting for GitHub Actions Deploy to finish for $sha ..."
+$deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+$conclusion = $null
+$htmlUrl = $null
+
+while ([DateTime]::UtcNow -lt $deadline) {
+  $json = curl.exe -sS -H "Accept: application/vnd.github+json" $runsUrl
+  $payload = $json | ConvertFrom-Json
+  $run = @($payload.workflow_runs) | Select-Object -First 1
+
+  if ($run) {
+    $htmlUrl = $run.html_url
+    Write-Host ("  {0} status={1} conclusion={2}" -f (Get-Date -Format HH:mm:ss), $run.status, $run.conclusion)
+    if ($run.status -eq "completed") {
+      $conclusion = $run.conclusion
+      break
+    }
+  } else {
+    Write-Host ("  {0} waiting for workflow run to appear..." -f (Get-Date -Format HH:mm:ss))
+  }
+
+  Start-Sleep -Seconds $PollSeconds
+}
+
+if (-not $conclusion) {
+  throw "Timed out waiting for Deploy workflow. Check $htmlUrl"
+}
+
+if ($conclusion -ne "success") {
+  throw "Deploy workflow $conclusion. Image was not published. See $htmlUrl"
+}
+
+Write-Host "Updating Azure Container App $ContainerApp with $image ..."
 az containerapp update `
   --name $ContainerApp `
   --resource-group $ResourceGroup `

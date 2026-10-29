@@ -7,9 +7,9 @@ config :phixem, PhixemWeb.Endpoint,
 
 # Must be set at compile time. Phoenix marks Endpoint :force_ssl as compile_env;
 # setting it only in runtime.exs aborts boot in a release.
-# Plug 1.20 exclude uses path_info segments, not a URL string.
+# Plug 1.20: path excludes are {:paths, ["/health"]}, not already-split path_info.
 config :phixem, PhixemWeb.Endpoint,
   force_ssl: [
     rewrite_on: [:x_forwarded_proto],
-    exclude: [{:paths, [["health"]]}]
+    exclude: [paths: ["/health"]]
   ]
