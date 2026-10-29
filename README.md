@@ -11,7 +11,7 @@ mix setup
 mix phx.server
 ```
 
-Open [http://localhost:4000](http://localhost:4000). Reload the page; the load count should increase. `/health` returns `ok` and does not add a row.
+Open [http://localhost:4000](http://localhost:4000). The list is a LiveView: open a second tab and the first tab’s timestamps update without a refresh. `/health` returns `ok` and does not add a row.
 
 ## What happens in production
 
@@ -19,7 +19,7 @@ Open [http://localhost:4000](http://localhost:4000). Reload the page; the load c
 2. The app restores `/tmp/phixem.db` from Blob when a replica exists (`litestream restore -if-replica-exists`).
 3. Ecto opens SQLite and runs migrations.
 4. Litestream replicates WAL back to Blob while the app is up.
-5. `GET /` inserts a UTC timestamp and lists every previous load.
+5. Connecting to `/` inserts a UTC timestamp and LiveView pushes new rows to every open tab.
 
 Max replicas must stay at **1**.
 

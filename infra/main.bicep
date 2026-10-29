@@ -147,6 +147,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
           env: [
             { name: 'PHX_SERVER', value: 'true' }
             { name: 'PORT', value: '8080' }
+            { name: 'SHELL', value: '/bin/sh' }
             { name: 'PHX_HOST', value: phxHost }
             { name: 'DATABASE_PATH', value: '/tmp/phixem.db' }
             { name: 'LITESTREAM_BIN', value: '/usr/local/bin/litestream' }

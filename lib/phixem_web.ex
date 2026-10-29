@@ -3,7 +3,7 @@ defmodule PhixemWeb do
   The entrypoint for defining your web interface.
   """
 
-  def static_paths, do: ~w(robots.txt)
+  def static_paths, do: ~w(assets robots.txt)
 
   def router do
     quote do
@@ -35,7 +35,7 @@ defmodule PhixemWeb do
 
   def live_view do
     quote do
-      use Phoenix.LiveView
+      use Phoenix.LiveView, layout: false
 
       unquote(html_helpers())
     end

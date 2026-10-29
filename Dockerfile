@@ -20,7 +20,7 @@ RUN mix local.hex --force \
 
 ENV MIX_ENV="prod"
 
-COPY mix.exs ./
+COPY mix.exs mix.lock ./
 RUN mix deps.get --only $MIX_ENV
 RUN mkdir config
 
@@ -29,7 +29,10 @@ RUN mix deps.compile
 
 COPY priv priv
 COPY lib lib
+COPY assets assets
 RUN mix compile
+RUN mix assets.setup
+RUN mix assets.deploy
 
 COPY config/runtime.exs config/
 COPY rel rel
@@ -65,6 +68,7 @@ ENV PHX_SERVER="true"
 ENV PORT="8080"
 ENV DATABASE_PATH="/tmp/phixem.db"
 ENV LITESTREAM_BIN="/usr/local/bin/litestream"
+ENV SHELL="/bin/sh"
 
 COPY --from=builder --chown=nobody:root /app/_build/${MIX_ENV}/rel/phixem ./
 

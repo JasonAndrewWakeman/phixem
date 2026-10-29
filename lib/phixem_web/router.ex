@@ -14,6 +14,6 @@ defmodule PhixemWeb.Router do
     pipe_through :browser
 
     get "/health", PageController, :health
-    get "/", PageController, :home
+    live "/", PageLive
   end
 end

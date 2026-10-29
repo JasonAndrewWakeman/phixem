@@ -14,6 +14,14 @@ config :phixem, PhixemWeb.Endpoint,
   pubsub_server: Phixem.PubSub,
   live_view: [signing_salt: "pL9sR4wY"]
 
+config :esbuild,
+  version: "0.25.4",
+  phixem: [
+    args: ~w(js/app.js --bundle --target=es2022 --outdir=../priv/static/assets/js),
+    cd: Path.expand("../assets", __DIR__),
+    env: %{"NODE_PATH" => [Path.expand("../deps", __DIR__), Mix.Project.build_path()]}
+  ]
+
 config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",
   metadata: [:request_id]

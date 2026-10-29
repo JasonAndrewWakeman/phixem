@@ -6,7 +6,9 @@ config :phixem, PhixemWeb.Endpoint,
   code_reloader: true,
   debug_errors: true,
   secret_key_base: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ab",
-  watchers: []
+  watchers: [
+    esbuild: {Esbuild, :install_and_run, [:phixem, ~w(--sourcemap=inline --watch)]}
+  ]
 
 config :phixem, PhixemWeb.Endpoint,
   live_reload: [
