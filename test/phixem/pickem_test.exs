@@ -17,14 +17,20 @@ defmodule Phixem.PickemTest do
     week1 = Pickem.get_week(1)
     assert "NE@SEA" in Phixem.Pickem.Week.matchup_list(week1)
     assert week1.complete
+    assert week1.mnf_score == "41"
+    assert week1.tie_breaker_value == 41
     perfect = Enum.find(week1.entries, & &1.winners_row)
     assert Phixem.Pickem.Entry.pick_map(perfect)["NE@SEA"] == "SEA"
+    assert perfect.tie_breaker == "41"
     assert perfect.correct_choices == length(Phixem.Pickem.Week.matchup_list(week1))
 
     week8 = Pickem.get_week(8)
     refute week8.complete
     assert "CAR@GB" in Phixem.Pickem.Week.matchup_list(week8)
     assert Pickem.default_week_number() == 8
+    week8_perfect = Enum.find(week8.entries, & &1.winners_row)
+    assert Phixem.Pickem.Entry.pick_map(week8_perfect) == %{}
+    assert week8_perfect.tie_breaker in [nil, ""]
   end
 
   test "seed_season! keeps extra entries while refreshing week headers" do

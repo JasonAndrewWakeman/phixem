@@ -60,7 +60,7 @@ defmodule PhixemWeb.PageLive do
       </span>
     </h1>
     <p class="muted">
-      PERFECT is updated as results come in, PERFECT's "Coins Won" represents the total pot.
+      PERFECT is updated as results come in.
       The list sorts based on # correct, if there is a tie, all players with the same number of correct at least win a free entry next week, and the person closest to the tie breaker total score for MNF wins the remainder of the total pot.
       If multiple players are equally close or exact to the tie-breaker the pot is split equally.
     </p>
@@ -134,6 +134,7 @@ defmodule PhixemWeb.PageLive do
 
   defp tie_breaker_cell(week, %{winners_row: true} = entry) do
     cond do
+      is_integer(week.tie_breaker_value) -> week.tie_breaker_value
       is_binary(week.mnf_score) and week.mnf_score != "" -> week.mnf_score
       is_binary(entry.tie_breaker) -> entry.tie_breaker
       true -> ""

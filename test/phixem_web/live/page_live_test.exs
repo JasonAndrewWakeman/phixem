@@ -13,6 +13,7 @@ defmodule PhixemWeb.PageLiveTest do
 
     assert html =~ "TOTAL ENTRIES 0"
     assert html =~ "TOTAL POT: 0"
+    refute html =~ "Coins Won\" represents the total pot"
     assert html =~ "Week 8"
     assert html =~ "CAR@GB"
     assert html =~ "CHI@SEA"
@@ -22,6 +23,8 @@ defmodule PhixemWeb.PageLiveTest do
     html = render_click(view, "select_week", %{"number" => "1"})
     assert html =~ "NE@SEA"
     assert html =~ "SEA"
+    assert html =~ "41"
+    refute html =~ "31-10"
     refute html =~ "CAR@GB"
   end
 

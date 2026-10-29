@@ -112,8 +112,8 @@ defmodule Phixem.Pickem do
       starts_on: Date.from_iso8601!(data["starts_on"]),
       matchups: Enum.join(data["matchups"] || [], ","),
       complete: data["complete"] == true,
-      mnf_score: data["mnf_score"],
-      tie_breaker_value: data["tie_breaker_value"]
+      mnf_score: stored_mnf_score(data),
+      tie_breaker_value: stored_tie_breaker_value(data)
     }
 
     week =
@@ -296,7 +296,7 @@ defmodule Phixem.Pickem do
   defp upsert_perfect!(week, data) do
     case Repo.get_by(Entry, week_id: week.id, username: "PERFECT") do
       nil ->
-        winners = data["winners"] || %{}
+        winners = seeded_perfect_winners(data)
         decided = Enum.count(winners, fn {_matchup, team} -> is_binary(team) and team != "" end)
 
         %Entry{}
@@ -305,7 +305,7 @@ defmodule Phixem.Pickem do
           username: "PERFECT",
           winners_row: true,
           picks: Jason.encode!(winners),
-          tie_breaker: data["mnf_score"],
+          tie_breaker: stored_mnf_score(data),
           correct_choices: decided,
           coins_won: 0
         })
@@ -313,6 +313,24 @@ defmodule Phixem.Pickem do
 
       _entry ->
         :ok
+    end
+  end
+
+  defp seeded_perfect_winners(%{"complete" => true} = data), do: data["winners"] || %{}
+  defp seeded_perfect_winners(_data), do: %{}
+
+  defp stored_tie_breaker_value(data) do
+    cond do
+      is_integer(data["tie_breaker_value"]) -> data["tie_breaker_value"]
+      total = score_total(data["mnf_score"]) -> total
+      true -> nil
+    end
+  end
+
+  defp stored_mnf_score(data) do
+    case stored_tie_breaker_value(data) do
+      total when is_integer(total) -> Integer.to_string(total)
+      _ -> nil
     end
   end
 
