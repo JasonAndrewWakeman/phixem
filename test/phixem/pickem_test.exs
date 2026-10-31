@@ -68,6 +68,29 @@ defmodule Phixem.PickemTest do
     assert {:error, :invalid_winners} = Pickem.save_perfect_winners(8, %{"CAR@GB" => "DAL"})
   end
 
+  test "save_perfect_winners stores TIE as a blank pick" do
+    assert {:ok, _} = Pickem.save_perfect_winners(8, %{"CAR@GB" => "GB"})
+    assert {:ok, entry} = Pickem.save_perfect_winners(8, %{"CAR@GB" => "TIE"})
+    assert Phixem.Pickem.Entry.pick_map(entry)["CAR@GB"] == ""
+    assert entry.correct_choices == 0
+  end
+
+  test "create_entry requires a pick for every matchup and a tie-breaker" do
+    week = Pickem.get_week(8)
+    picks = home_picks(week) |> Map.delete("CAR@GB")
+
+    assert {:error, {:missing_fields, missing}} =
+             Pickem.create_entry(8, %{
+               "username" => "Neo",
+               "winners" => picks,
+               "tie_breaker" => ""
+             })
+
+    assert "CAR@GB" in missing
+    assert "Tie-breaker" in missing
+    refute "Name" in missing
+  end
+
   test "create_entry adds a player row and gives PERFECT 9 coins per entry" do
     week = Pickem.get_week(8)
     picks = home_picks(week)

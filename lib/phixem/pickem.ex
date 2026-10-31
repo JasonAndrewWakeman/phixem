@@ -87,15 +87,17 @@ defmodule Phixem.Pickem do
         winners = Map.get(attrs, "winners") || Map.get(attrs, :winners) || %{}
         tie_breaker = attrs |> Map.get("tie_breaker", Map.get(attrs, :tie_breaker, "")) |> to_string() |> String.trim()
 
-        cond do
-          username == "" ->
-            {:error, :invalid_name}
+        missing = missing_entry_fields(week, username, winners, tie_breaker)
 
+        cond do
           String.downcase(username) == "perfect" ->
             {:error, :reserved_name}
 
+          missing != [] ->
+            {:error, {:missing_fields, missing}}
+
           true ->
-            with :ok <- validate_complete_winners(week, winners) do
+            with :ok <- validate_winners(week, winners) do
               persist_entry(week, username, winners, tie_breaker)
             end
         end
@@ -257,7 +259,7 @@ defmodule Phixem.Pickem do
     invalid =
       Enum.reject(winners, fn {matchup, team} ->
         case allowed[to_string(matchup)] do
-          {away, home} -> team in [away, home]
+          {away, home} -> to_string(team) in [away, home, "", "TIE"]
           _ -> false
         end
       end)
@@ -269,21 +271,25 @@ defmodule Phixem.Pickem do
     end
   end
 
-  defp validate_complete_winners(week, winners) do
-    with :ok <- validate_winners(week, winners) do
-      submitted = winners |> stringify_winner_map() |> Map.keys()
-      missing = Week.matchup_list(week) -- submitted
+  defp missing_entry_fields(week, username, winners, tie_breaker) do
+    picks = stringify_winner_map(winners)
 
-      if missing == [] do
-        :ok
-      else
-        {:error, :incomplete_winners}
-      end
-    end
+    matchups =
+      Enum.reject(Week.matchup_list(week), fn matchup ->
+        team = Map.get(picks, matchup, "")
+        is_binary(team) and team != ""
+      end)
+
+    name = if username == "", do: ["Name"], else: []
+    tb = if tie_breaker == "", do: ["Tie-breaker"], else: []
+    name ++ matchups ++ tb
   end
 
   defp stringify_winner_map(winners) do
-    Map.new(winners, fn {matchup, team} -> {to_string(matchup), to_string(team)} end)
+    Map.new(winners, fn {matchup, team} ->
+      team = to_string(team)
+      {to_string(matchup), if(team in ["", "TIE"], do: "", else: team)}
+    end)
   end
 
   defp perfect_entry(%Week{id: id}) do

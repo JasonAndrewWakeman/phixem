@@ -11,8 +11,7 @@ defmodule PhixemWeb.PageLiveTest do
   test "home page defaults to the first open week and can select others", %{conn: conn} do
     {:ok, view, html} = live(conn, ~p"/")
 
-    assert html =~ "TOTAL ENTRIES 0"
-    assert html =~ "TOTAL POT: 0"
+    assert html =~ "ENTRIES: 0 || TOTAL POT: 0"
     refute html =~ "Coins Won\" represents the total pot"
     assert html =~ "Week 8"
     assert html =~ "CAR@GB"

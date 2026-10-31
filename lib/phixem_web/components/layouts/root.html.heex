@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
     <meta name="csrf-token" content={get_csrf_token()} />
     <.live_title>Phixem</.live_title>
     <link rel="icon" type="image/png" href="/favicon.png?v=2" />
@@ -57,10 +58,15 @@
         margin: 0 0 0.35rem;
       }
       .header-stats {
-        font-size: 0.95rem;
+        font-size: 0.825rem;
         font-weight: 500;
         letter-spacing: 0;
         color: #cfc;
+      }
+      .header-stat-value {
+        font-size: 1.075rem;
+        font-weight: 600;
+        color: #e0b0a8;
       }
       .muted { color: #888; font-size: 0.95rem; margin: 0 0 1rem; max-width: 52rem; }
       .tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 1.25rem 0 1rem; }
@@ -75,6 +81,25 @@
       a.tab { text-decoration: none; display: inline-block; }
       .tab.on { color: #111; background: #cfc; border-color: #9f9; }
       .perfect-form, .entry-form { margin-top: 1.25rem; max-width: 36rem; }
+      .perfect-panel { margin-top: 2rem; max-width: 36rem; }
+      .perfect-panel > summary { list-style: none; }
+      .perfect-panel > summary::-webkit-details-marker { display: none; }
+      .select-winners {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 1.05rem 1.25rem;
+        font: inherit;
+        font-size: 1.2rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        color: #fff;
+        background: #c62828;
+        border: 2px solid #e53935;
+        cursor: pointer;
+        text-align: center;
+      }
+      .select-winners:hover { background: #b71c1c; }
       .matchup-pick {
         display: flex;
         flex-wrap: wrap;

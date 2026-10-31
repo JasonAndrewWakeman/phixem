@@ -17,14 +17,22 @@ defmodule PhixemWeb.AdminControllerTest do
     refute html =~ ~s(id="admin-ok")
   end
 
-  test "unlocked admin shows a prepopulated PERFECT form", %{conn: conn} do
+  test "unlocked admin hides PERFECT until SELECT WINNERS and lists it after the entry form", %{
+    conn: conn
+  } do
     Pickem.seed!()
     conn = unlock(conn) |> get(~p"/broncosAdmin?week=1")
     html = html_response(conn, 200)
     assert html =~ ~s(id="admin-ok")
+    assert html =~ "Create entry"
+    assert html =~ "SELECT WINNERS"
     assert html =~ "NE@SEA"
     assert html =~ ~s(value="SEA")
-    assert html =~ ~s(checked)
+    assert html =~ "TIE"
+    refute html =~ ~r/details[^>]*open/
+    create_at = :binary.match(html, "Create entry") |> elem(0)
+    winners_at = :binary.match(html, "SELECT WINNERS") |> elem(0)
+    assert create_at < winners_at
     refute html =~ "Complete week"
   end
 
@@ -50,6 +58,32 @@ defmodule PhixemWeb.AdminControllerTest do
     assert Phixem.Pickem.Entry.pick_map(perfect)["CAR@GB"] == "CAR"
   end
 
+  test "admin can mark a PERFECT matchup as TIE and the board cell is blank", %{conn: conn} do
+    Pickem.seed!()
+    conn = unlock(conn)
+
+    conn =
+      post(conn, ~p"/broncosAdmin/perfect", %{
+        "week" => "8",
+        "winners" => %{"CAR@GB" => "CAR"}
+      })
+
+    assert redirected_to(conn) == ~p"/broncosAdmin?week=8"
+
+    conn =
+      recycle(conn)
+      |> post(~p"/broncosAdmin/perfect", %{
+        "week" => "8",
+        "winners" => %{"CAR@GB" => "TIE"}
+      })
+
+    assert redirected_to(conn) == ~p"/broncosAdmin?week=8"
+
+    week = Pickem.get_week(8)
+    perfect = Enum.find(week.entries, & &1.winners_row)
+    assert Phixem.Pickem.Entry.pick_map(perfect)["CAR@GB"] == ""
+  end
+
   test "admin can create a manual entry for the selected week", %{conn: conn} do
     Pickem.seed!()
     week = Pickem.get_week(8)
@@ -70,6 +104,28 @@ defmodule PhixemWeb.AdminControllerTest do
     assert neo.tie_breaker == "41"
     perfect = Enum.find(week.entries, & &1.winners_row)
     assert perfect.coins_won == 9
+  end
+
+  test "admin entry save lists missing picks and tie-breaker", %{conn: conn} do
+    Pickem.seed!()
+    conn = unlock(conn)
+
+    conn =
+      post(conn, ~p"/broncosAdmin/entries", %{
+        "week" => "8",
+        "username" => "Neo",
+        "tie_breaker" => "",
+        "winners" => %{"CAR@GB" => "GB"}
+      })
+
+    assert redirected_to(conn) == ~p"/broncosAdmin?week=8"
+    conn = get(recycle(conn), ~p"/broncosAdmin?week=8")
+    html = html_response(conn, 200)
+    assert html =~ "Missing:"
+    assert html =~ "BAL@BUF"
+    assert html =~ "Tie-breaker"
+    refute html =~ "Missing: Name"
+    assert Enum.find(Pickem.get_week(8).entries, &(&1.username == "Neo")) == nil
   end
 
   defp home_picks(week) do

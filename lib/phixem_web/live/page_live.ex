@@ -55,8 +55,8 @@ defmodule PhixemWeb.PageLive do
     <h1>
       Phixem
       <span class="header-stats">
-        TOTAL ENTRIES {player_count(@entries)}
-        TOTAL POT: {pot(@entries)}
+        ENTRIES: <span class="header-stat-value">{player_count(@entries)}</span>
+        || TOTAL POT: <span class="header-stat-value">{pot(@entries)}</span>
       </span>
     </h1>
     <p class="muted">

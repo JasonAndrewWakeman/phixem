@@ -14,40 +14,6 @@
     </a>
   </div>
 
-  <section :if={@week} class="perfect-form">
-    <h2>PERFECT — Week {@week.number}</h2>
-    <p class="muted">Sunday {@week.starts_on}. Choose the team that actually won each game.</p>
-
-    <form action={~p"/broncosAdmin/perfect"} method="post">
-      <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
-      <input type="hidden" name="week" value={@week.number} />
-
-      <div :for={matchup <- Phixem.Pickem.Week.matchup_list(@week)} class="matchup-pick">
-        <span class="matchup-label">{matchup}</span>
-        <label>
-          <input
-            type="radio"
-            name={"winners[#{matchup}]"}
-            value={away_team(matchup)}
-            checked={selected_winner(@winners, matchup) == away_team(matchup)}
-          />
-          {away_team(matchup)}
-        </label>
-        <label>
-          <input
-            type="radio"
-            name={"winners[#{matchup}]"}
-            value={home_team(matchup)}
-            checked={selected_winner(@winners, matchup) == home_team(matchup)}
-          />
-          {home_team(matchup)}
-        </label>
-      </div>
-
-      <button type="submit">Save PERFECT</button>
-    </form>
-  </section>
-
   <section :if={@week} class="entry-form">
     <h2>Create entry — Week {@week.number}</h2>
     <div class="admin-actions">
@@ -78,10 +44,56 @@
 
       <label>
         Tie-breaker (Monday night game)
-        <input type="text" name="tie_breaker" placeholder="e.g. 45 or 24-21" />
+        <input type="text" name="tie_breaker" placeholder="e.g 42 (total score)" />
       </label>
 
       <button type="submit">Save entry</button>
     </form>
   </section>
+
+  <details :if={@week} class="perfect-panel" open={@show_perfect}>
+    <summary class="select-winners">SELECT WINNERS</summary>
+    <section class="perfect-form">
+      <h2>PERFECT — Week {@week.number}</h2>
+      <p class="muted">Sunday {@week.starts_on}. Choose the team that actually won each game.</p>
+
+      <form action={~p"/broncosAdmin/perfect"} method="post">
+        <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+        <input type="hidden" name="week" value={@week.number} />
+
+        <div :for={matchup <- Phixem.Pickem.Week.matchup_list(@week)} class="matchup-pick">
+          <span class="matchup-label">{matchup}</span>
+          <label>
+            <input
+              type="radio"
+              name={"winners[#{matchup}]"}
+              value={away_team(matchup)}
+              checked={selected_winner(@winners, matchup) == away_team(matchup)}
+            />
+            {away_team(matchup)}
+          </label>
+          <label>
+            <input
+              type="radio"
+              name={"winners[#{matchup}]"}
+              value={home_team(matchup)}
+              checked={selected_winner(@winners, matchup) == home_team(matchup)}
+            />
+            {home_team(matchup)}
+          </label>
+          <label>
+            <input
+              type="radio"
+              name={"winners[#{matchup}]"}
+              value="TIE"
+              checked={selected_tie?(@winners, matchup)}
+            />
+            TIE
+          </label>
+        </div>
+
+        <button type="submit">Save PERFECT</button>
+      </form>
+    </section>
+  </details>
 </section>

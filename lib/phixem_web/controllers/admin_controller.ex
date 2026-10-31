@@ -47,7 +47,7 @@ defmodule PhixemWeb.AdminController do
       {:error, :invalid_winners} ->
         conn
         |> put_flash(:error, "Each winner must be one of the two teams in that matchup.")
-        |> redirect(to: ~p"/broncosAdmin?week=#{week_number}")
+        |> redirect(to: ~p"/broncosAdmin?week=#{week_number}&perfect=1")
     end
   end
 
@@ -71,9 +71,9 @@ defmodule PhixemWeb.AdminController do
         |> put_flash(:error, "That week was not found.")
         |> redirect(to: ~p"/broncosAdmin")
 
-      {:error, :invalid_name} ->
+      {:error, {:missing_fields, fields}} ->
         conn
-        |> put_flash(:error, "Enter a player name.")
+        |> put_flash(:error, missing_fields_message(fields))
         |> redirect(to: ~p"/broncosAdmin?week=#{week_number}")
 
       {:error, :reserved_name} ->
@@ -84,11 +84,6 @@ defmodule PhixemWeb.AdminController do
       {:error, :invalid_winners} ->
         conn
         |> put_flash(:error, "Each pick must be one of the two teams in that matchup.")
-        |> redirect(to: ~p"/broncosAdmin?week=#{week_number}")
-
-      {:error, :incomplete_winners} ->
-        conn
-        |> put_flash(:error, "Select a winner for every matchup.")
         |> redirect(to: ~p"/broncosAdmin?week=#{week_number}")
     end
   end
@@ -101,7 +96,8 @@ defmodule PhixemWeb.AdminController do
     render(conn, :unlocked,
       weeks: weeks,
       week: week,
-      winners: winners || %{}
+      winners: winners || %{},
+      show_perfect: params["perfect"] in ["1", "true"]
     )
   end
 
@@ -118,6 +114,10 @@ defmodule PhixemWeb.AdminController do
     do: ~p"/broncosAdmin?week=#{week}"
 
   defp admin_path(_), do: ~p"/broncosAdmin"
+
+  defp missing_fields_message(fields) do
+    "Missing: #{Enum.join(fields, ", ")}"
+  end
 
   defp require_admin(conn, _opts) do
     if get_session(conn, :broncos_admin) do

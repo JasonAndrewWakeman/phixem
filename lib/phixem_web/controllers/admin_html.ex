@@ -7,6 +7,10 @@ defmodule PhixemWeb.AdminHTML do
 
   def selected_winner(winners, matchup), do: winners[matchup]
 
+  def selected_tie?(winners, matchup) do
+    selected_winner(winners, matchup) in [nil, ""]
+  end
+
   def away_team(matchup) do
     case Week.matchup_teams(matchup) do
       {away, _home} -> away
