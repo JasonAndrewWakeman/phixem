@@ -32,8 +32,9 @@ defmodule PhixemWeb.AdminController do
   def save_perfect(conn, params) do
     week_number = params["week"]
     winners = params["winners"] || %{}
+    tie_breaker = params["tie_breaker"]
 
-    case Pickem.save_perfect_winners(week_number, winners) do
+    case Pickem.save_perfect_winners(week_number, winners, tie_breaker) do
       {:ok, _entry} ->
         conn
         |> put_flash(:info, "PERFECT winners saved for week #{week_number}.")
@@ -47,6 +48,11 @@ defmodule PhixemWeb.AdminController do
       {:error, :invalid_winners} ->
         conn
         |> put_flash(:error, "Each winner must be one of the two teams in that matchup.")
+        |> redirect(to: ~p"/broncosAdmin?week=#{week_number}&perfect=1")
+
+      {:error, :invalid_tie_breaker} ->
+        conn
+        |> put_flash(:error, "Tie-breaker must be a total score, e.g 42.")
         |> redirect(to: ~p"/broncosAdmin?week=#{week_number}&perfect=1")
     end
   end
@@ -63,6 +69,7 @@ defmodule PhixemWeb.AdminController do
     case Pickem.create_entry(week_number, attrs) do
       {:ok, entry} ->
         conn
+        |> delete_session(:entry_form)
         |> put_flash(:info, "Added #{entry.username} to week #{week_number}.")
         |> redirect(to: ~p"/broncosAdmin?week=#{week_number}")
 
@@ -72,19 +79,16 @@ defmodule PhixemWeb.AdminController do
         |> redirect(to: ~p"/broncosAdmin")
 
       {:error, {:missing_fields, fields}} ->
-        conn
-        |> put_flash(:error, missing_fields_message(fields))
-        |> redirect(to: ~p"/broncosAdmin?week=#{week_number}")
+        redirect_entry_error(conn, params, missing_fields_message(fields))
+
+      {:error, {:duplicate_name, username}} ->
+        redirect_entry_error(conn, params, "#{username} already has an entry for week #{week_number}.")
 
       {:error, :reserved_name} ->
-        conn
-        |> put_flash(:error, "PERFECT is reserved for the winners row.")
-        |> redirect(to: ~p"/broncosAdmin?week=#{week_number}")
+        redirect_entry_error(conn, params, "PERFECT is reserved for the winners row.")
 
       {:error, :invalid_winners} ->
-        conn
-        |> put_flash(:error, "Each pick must be one of the two teams in that matchup.")
-        |> redirect(to: ~p"/broncosAdmin?week=#{week_number}")
+        redirect_entry_error(conn, params, "Each pick must be one of the two teams in that matchup.")
     end
   end
 
@@ -92,13 +96,40 @@ defmodule PhixemWeb.AdminController do
     weeks = Pickem.list_weeks()
     week = Pickem.get_week(params["week"]) || Pickem.get_week(Pickem.default_week_number())
     winners = week && perfect_winners(week)
+    {conn, entry_form} = take_entry_form(conn, week)
 
     render(conn, :unlocked,
       weeks: weeks,
       week: week,
       winners: winners || %{},
+      entry_form: entry_form,
       show_perfect: params["perfect"] in ["1", "true"]
     )
+  end
+
+  defp redirect_entry_error(conn, params, message) do
+    week_number = params["week"]
+
+    conn
+    |> remember_entry_form(params)
+    |> put_flash(:error, message)
+    |> redirect(to: ~p"/broncosAdmin?week=#{week_number}")
+  end
+
+  defp remember_entry_form(conn, params) do
+    put_session(conn, :entry_form, %{
+      "week" => to_string(params["week"] || ""),
+      "username" => params["username"] || "",
+      "winners" => params["winners"] || %{},
+      "tie_breaker" => params["tie_breaker"] || ""
+    })
+  end
+
+  defp take_entry_form(conn, week) do
+    form = get_session(conn, :entry_form) || %{}
+    conn = delete_session(conn, :entry_form)
+    same_week = week && to_string(week.number) == to_string(form["week"])
+    {conn, if(same_week, do: form, else: %{})}
   end
 
   defp perfect_winners(week) do

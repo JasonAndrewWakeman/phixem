@@ -63,19 +63,22 @@ defmodule Phixem.Pickem do
     :ok
   end
 
-  def save_perfect_winners(week_number, winners) when is_map(winners) do
+  def save_perfect_winners(week_number, winners, tie_breaker \\ nil)
+
+  def save_perfect_winners(week_number, winners, tie_breaker) when is_map(winners) do
     case get_week(week_number) do
       nil ->
         {:error, :not_found}
 
       week ->
-        with :ok <- validate_winners(week, winners) do
-          persist_perfect(week, winners)
+        with :ok <- validate_winners(week, winners),
+             {:ok, parsed_tb} <- parse_optional_tie_breaker(tie_breaker) do
+          persist_perfect(week, winners, parsed_tb)
         end
     end
   end
 
-  def save_perfect_winners(_, _), do: {:error, :invalid}
+  def save_perfect_winners(_, _, _), do: {:error, :invalid}
 
   def create_entry(week_number, attrs) when is_map(attrs) do
     case get_week(week_number) do
@@ -83,7 +86,7 @@ defmodule Phixem.Pickem do
         {:error, :not_found}
 
       week ->
-        username = attrs |> Map.get("username", "") |> to_string() |> String.trim()
+        username = attrs |> Map.get("username", "") |> normalize_username()
         winners = Map.get(attrs, "winners") || Map.get(attrs, :winners) || %{}
         tie_breaker = attrs |> Map.get("tie_breaker", Map.get(attrs, :tie_breaker, "")) |> to_string() |> String.trim()
 
@@ -96,6 +99,9 @@ defmodule Phixem.Pickem do
           missing != [] ->
             {:error, {:missing_fields, missing}}
 
+          duplicate_username?(week, username) ->
+            {:error, {:duplicate_name, username}}
+
           true ->
             with :ok <- validate_winners(week, winners) do
               persist_entry(week, username, winners, tie_breaker)
@@ -107,6 +113,10 @@ defmodule Phixem.Pickem do
   def create_entry(_, _), do: {:error, :invalid}
 
   defp upsert_week!(data) do
+    existing = Repo.get_by(Week, number: data["number"])
+    json_tb = stored_tie_breaker_value(data)
+    json_mnf = stored_mnf_score(data)
+
     attrs = %{
       number: data["number"],
       tab: "stored",
@@ -114,12 +124,12 @@ defmodule Phixem.Pickem do
       starts_on: Date.from_iso8601!(data["starts_on"]),
       matchups: Enum.join(data["matchups"] || [], ","),
       complete: data["complete"] == true,
-      mnf_score: stored_mnf_score(data),
-      tie_breaker_value: stored_tie_breaker_value(data)
+      mnf_score: json_mnf || (existing && existing.mnf_score),
+      tie_breaker_value: json_tb || (existing && existing.tie_breaker_value)
     }
 
     week =
-      case Repo.get_by(Week, number: attrs.number) do
+      case existing do
         nil ->
           %Week{}
           |> Week.changeset(attrs)
@@ -139,7 +149,7 @@ defmodule Phixem.Pickem do
     picks = winners |> stringify_winner_map() |> Jason.encode!()
 
     Repo.transaction(fn ->
-      entry =
+      changeset =
         %Entry{}
         |> Entry.changeset(%{
           week_id: week.id,
@@ -148,14 +158,39 @@ defmodule Phixem.Pickem do
           picks: picks,
           tie_breaker: tie_breaker
         })
-        |> Repo.insert!()
 
-      sync_perfect_coins!(week)
-      recalculate_standings!(week)
+      case Repo.insert(changeset) do
+        {:ok, entry} ->
+          sync_perfect_coins!(week)
+          recalculate_standings!(week)
+          Phoenix.PubSub.broadcast(Phixem.PubSub, "pickem", {:week_updated, week.number})
+          Repo.get!(Entry, entry.id)
 
-      Phoenix.PubSub.broadcast(Phixem.PubSub, "pickem", {:week_updated, week.number})
-      Repo.get!(Entry, entry.id)
+        {:error, _changeset} ->
+          Repo.rollback({:duplicate_name, username})
+      end
     end)
+    |> case do
+      {:ok, entry} -> {:ok, entry}
+      {:error, {:duplicate_name, name}} -> {:error, {:duplicate_name, name}}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp normalize_username(name) do
+    name
+    |> to_string()
+    |> String.trim()
+    |> String.replace(~r/\s+/u, " ")
+  end
+
+  defp duplicate_username?(week, username) do
+    key = String.downcase(username)
+
+    Repo.exists?(
+      from e in Entry,
+        where: e.week_id == ^week.id and fragment("lower(?)", e.username) == ^key
+    )
   end
 
   defp sync_perfect_coins!(week) do
@@ -178,7 +213,7 @@ defmodule Phixem.Pickem do
     end
   end
 
-  defp persist_perfect(week, winners) do
+  defp persist_perfect(week, winners, parsed_tb) do
     existing = perfect_entry(week)
     merged = Map.merge(perfect_picks(existing), stringify_winner_map(winners))
     picks = Jason.encode!(merged)
@@ -190,23 +225,51 @@ defmodule Phixem.Pickem do
       picks: picks
     }
 
-    result =
-      case existing do
-        nil ->
-          %Entry{}
-          |> Entry.changeset(attrs)
-          |> Repo.insert()
-
-        entry ->
-          entry
-          |> Entry.changeset(attrs)
-          |> Repo.update()
+    attrs =
+      if is_integer(parsed_tb) do
+        Map.put(attrs, :tie_breaker, Integer.to_string(parsed_tb))
+      else
+        attrs
       end
 
-    with {:ok, entry} <- result do
+    Repo.transaction(fn ->
+      week =
+        if is_integer(parsed_tb) do
+          week
+          |> Week.changeset(%{
+            mnf_score: Integer.to_string(parsed_tb),
+            tie_breaker_value: parsed_tb
+          })
+          |> Repo.update!()
+        else
+          week
+        end
+
+      entry =
+        case existing do
+          nil ->
+            %Entry{}
+            |> Entry.changeset(attrs)
+            |> Repo.insert!()
+
+          entry ->
+            entry
+            |> Entry.changeset(attrs)
+            |> Repo.update!()
+        end
+
       recalculate_standings!(week)
       Phoenix.PubSub.broadcast(Phixem.PubSub, "pickem", {:perfect_updated, week.number})
-      {:ok, Repo.get!(Entry, entry.id)}
+      Repo.get!(Entry, entry.id)
+    end)
+  end
+
+  defp parse_optional_tie_breaker(value) when value in [nil, ""], do: {:ok, nil}
+
+  defp parse_optional_tie_breaker(value) do
+    case score_total(value) do
+      total when is_integer(total) -> {:ok, total}
+      _ -> {:error, :invalid_tie_breaker}
     end
   end
 
@@ -230,7 +293,8 @@ defmodule Phixem.Pickem do
         {player, correct}
       end)
 
-    payouts = payouts(week, perfect, scored_matchups, scored_players)
+    ready = is_integer(actual_tie_breaker(week, perfect))
+    payouts = if ready, do: payouts(week, perfect, scored_matchups, scored_players), else: %{}
 
     if perfect do
       perfect
@@ -242,7 +306,7 @@ defmodule Phixem.Pickem do
       player
       |> Entry.changeset(%{
         correct_choices: correct,
-        coins_won: Map.get(payouts, player.id, 0)
+        coins_won: if(ready, do: Map.get(payouts, player.id, 0), else: nil)
       })
       |> Repo.update!()
     end)

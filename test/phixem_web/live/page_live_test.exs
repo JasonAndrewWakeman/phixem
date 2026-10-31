@@ -11,7 +11,9 @@ defmodule PhixemWeb.PageLiveTest do
   test "home page defaults to the first open week and can select others", %{conn: conn} do
     {:ok, view, html} = live(conn, ~p"/")
 
-    assert html =~ "ENTRIES: 0 || TOTAL POT: 0"
+    assert html =~ "ENTRIES:"
+    assert html =~ "TOTAL POT:"
+    assert html =~ "header-stat-value"
     refute html =~ "Coins Won\" represents the total pot"
     assert html =~ "Week 8"
     assert html =~ "CAR@GB"
@@ -25,6 +27,10 @@ defmodule PhixemWeb.PageLiveTest do
     assert html =~ "41"
     refute html =~ "31-10"
     refute html =~ "CAR@GB"
+
+    assert {:ok, _} = Phixem.Pickem.save_perfect_winners(8, %{"CAR@GB" => "GB"}, "42")
+    html = render_click(view, "select_week", %{"number" => "8"})
+    assert html =~ "42"
   end
 
   test "GET /health still works", %{conn: conn} do

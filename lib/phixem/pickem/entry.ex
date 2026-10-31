@@ -29,6 +29,7 @@ defmodule Phixem.Pickem.Entry do
       :total_coins_won
     ])
     |> validate_required([:week_id, :username, :picks])
+    |> unique_constraint(:username, name: :nfl_entries_week_username_lower)
   end
 
   def pick_map(%__MODULE__{picks: picks}) when is_binary(picks) do

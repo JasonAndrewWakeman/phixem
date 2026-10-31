@@ -27,24 +27,39 @@
 
       <label>
         Name
-        <input type="text" name="username" autocomplete="off" />
+        <input type="text" name="username" autocomplete="off" value={@entry_form["username"]} />
       </label>
 
       <div :for={matchup <- Phixem.Pickem.Week.matchup_list(@week)} class="matchup-pick">
         <span class="matchup-label">{matchup}</span>
         <label>
-          <input type="radio" name={"winners[#{matchup}]"} value={away_team(matchup)} />
+          <input
+            type="radio"
+            name={"winners[#{matchup}]"}
+            value={away_team(matchup)}
+            checked={selected_winner(@entry_form["winners"] || %{}, matchup) == away_team(matchup)}
+          />
           {away_team(matchup)}
         </label>
         <label>
-          <input type="radio" name={"winners[#{matchup}]"} value={home_team(matchup)} />
+          <input
+            type="radio"
+            name={"winners[#{matchup}]"}
+            value={home_team(matchup)}
+            checked={selected_winner(@entry_form["winners"] || %{}, matchup) == home_team(matchup)}
+          />
           {home_team(matchup)}
         </label>
       </div>
 
       <label>
         Tie-breaker (Monday night game)
-        <input type="text" name="tie_breaker" placeholder="e.g 42 (total score)" />
+        <input
+          type="text"
+          name="tie_breaker"
+          placeholder="e.g 42 (total score)"
+          value={@entry_form["tie_breaker"]}
+        />
       </label>
 
       <button type="submit">Save entry</button>
@@ -91,6 +106,16 @@
             TIE
           </label>
         </div>
+
+        <label>
+          Tie-breaker (Monday night total score)
+          <input
+            type="text"
+            name="tie_breaker"
+            value={perfect_tie_breaker(@week)}
+            placeholder="e.g 42 (total score)"
+          />
+        </label>
 
         <button type="submit">Save PERFECT</button>
       </form>

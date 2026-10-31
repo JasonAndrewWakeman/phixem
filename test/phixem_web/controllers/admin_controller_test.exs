@@ -43,7 +43,8 @@ defmodule PhixemWeb.AdminControllerTest do
     conn =
       post(conn, ~p"/broncosAdmin/perfect", %{
         "week" => "8",
-        "winners" => %{"CAR@GB" => "CAR", "BAL@BUF" => "BUF"}
+        "winners" => %{"CAR@GB" => "CAR", "BAL@BUF" => "BUF"},
+        "tie_breaker" => "42"
       })
 
     assert redirected_to(conn) == ~p"/broncosAdmin?week=8"
@@ -56,6 +57,9 @@ defmodule PhixemWeb.AdminControllerTest do
     week = Pickem.get_week(8)
     perfect = Enum.find(week.entries, & &1.winners_row)
     assert Phixem.Pickem.Entry.pick_map(perfect)["CAR@GB"] == "CAR"
+    assert perfect.tie_breaker == "42"
+    assert week.tie_breaker_value == 42
+    assert week.mnf_score == "42"
   end
 
   test "admin can mark a PERFECT matchup as TIE and the board cell is blank", %{conn: conn} do
@@ -102,8 +106,40 @@ defmodule PhixemWeb.AdminControllerTest do
     week = Pickem.get_week(8)
     neo = Enum.find(week.entries, &(&1.username == "Neo"))
     assert neo.tie_breaker == "41"
+    assert is_nil(neo.coins_won)
     perfect = Enum.find(week.entries, & &1.winners_row)
     assert perfect.coins_won == 9
+  end
+
+  test "admin rejects a duplicate name for the same week", %{conn: conn} do
+    Pickem.seed!()
+    week = Pickem.get_week(8)
+    winners = home_picks(week)
+    conn = unlock(conn)
+
+    conn =
+      post(conn, ~p"/broncosAdmin/entries", %{
+        "week" => "8",
+        "username" => "Neo",
+        "tie_breaker" => "41",
+        "winners" => winners
+      })
+
+    conn =
+      recycle(conn)
+      |> post(~p"/broncosAdmin/entries", %{
+        "week" => "8",
+        "username" => " neo ",
+        "tie_breaker" => "50",
+        "winners" => winners
+      })
+
+    assert redirected_to(conn) == ~p"/broncosAdmin?week=8"
+    conn = get(recycle(conn), ~p"/broncosAdmin?week=8")
+    html = html_response(conn, 200)
+    assert html =~ "neo already has an entry for week 8."
+    assert html =~ ~s(value="50")
+    assert Enum.count(Pickem.get_week(8).entries, &(&1.winners_row == false)) == 1
   end
 
   test "admin entry save lists missing picks and tie-breaker", %{conn: conn} do
@@ -125,6 +161,8 @@ defmodule PhixemWeb.AdminControllerTest do
     assert html =~ "BAL@BUF"
     assert html =~ "Tie-breaker"
     refute html =~ "Missing: Name"
+    assert html =~ ~s(value="Neo")
+    assert html =~ ~s(value="GB")
     assert Enum.find(Pickem.get_week(8).entries, &(&1.username == "Neo")) == nil
   end
 

@@ -11,6 +11,14 @@ defmodule PhixemWeb.AdminHTML do
     selected_winner(winners, matchup) in [nil, ""]
   end
 
+  def perfect_tie_breaker(week) do
+    cond do
+      is_integer(week.tie_breaker_value) -> Integer.to_string(week.tie_breaker_value)
+      is_binary(week.mnf_score) and week.mnf_score != "" -> week.mnf_score
+      true -> ""
+    end
+  end
+
   def away_team(matchup) do
     case Week.matchup_teams(matchup) do
       {away, _home} -> away

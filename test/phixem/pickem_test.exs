@@ -68,6 +68,25 @@ defmodule Phixem.PickemTest do
     assert {:error, :invalid_winners} = Pickem.save_perfect_winners(8, %{"CAR@GB" => "DAL"})
   end
 
+  test "save_perfect_winners stores the Monday night total and seed does not wipe it" do
+    assert {:ok, entry} = Pickem.save_perfect_winners(8, %{"CAR@GB" => "GB"}, "42")
+    assert entry.tie_breaker == "42"
+
+    week = Pickem.get_week(8)
+    assert week.tie_breaker_value == 42
+    assert week.mnf_score == "42"
+
+    assert :ok = Pickem.seed_season!()
+    week = Pickem.get_week(8)
+    assert week.tie_breaker_value == 42
+    assert week.mnf_score == "42"
+  end
+
+  test "save_perfect_winners rejects a non-numeric tie-breaker" do
+    assert {:error, :invalid_tie_breaker} =
+             Pickem.save_perfect_winners(8, %{"CAR@GB" => "GB"}, "final")
+  end
+
   test "save_perfect_winners stores TIE as a blank pick" do
     assert {:ok, _} = Pickem.save_perfect_winners(8, %{"CAR@GB" => "GB"})
     assert {:ok, entry} = Pickem.save_perfect_winners(8, %{"CAR@GB" => "TIE"})
@@ -91,6 +110,29 @@ defmodule Phixem.PickemTest do
     refute "Name" in missing
   end
 
+  test "create_entry normalizes names and rejects a duplicate for the same week" do
+    week = Pickem.get_week(8)
+    picks = home_picks(week)
+
+    assert {:ok, entry} =
+             Pickem.create_entry(8, %{
+               "username" => "  Neo  ",
+               "winners" => picks,
+               "tie_breaker" => "41"
+             })
+
+    assert entry.username == "Neo"
+
+    assert {:error, {:duplicate_name, "NEO"}} =
+             Pickem.create_entry(8, %{
+               "username" => "NEO",
+               "winners" => picks,
+               "tie_breaker" => "50"
+             })
+
+    assert Enum.count(Pickem.get_week(8).entries, &(&1.username == "Neo")) == 1
+  end
+
   test "create_entry adds a player row and gives PERFECT 9 coins per entry" do
     week = Pickem.get_week(8)
     picks = home_picks(week)
@@ -111,6 +153,12 @@ defmodule Phixem.PickemTest do
     perfect = Enum.find(week.entries, & &1.winners_row)
     assert perfect.coins_won == 90
     assert Enum.count(week.entries, &(&1.winners_row == false)) == 10
+    assert Enum.all?(week.entries, fn entry -> entry.winners_row or is_nil(entry.coins_won) end)
+
+    {:ok, _} = Pickem.save_perfect_winners(8, home_picks(week), "45")
+    week = Pickem.get_week(8)
+    players = Enum.reject(week.entries, & &1.winners_row)
+    assert Enum.all?(players, &(is_integer(&1.coins_won) and &1.coins_won >= 0))
   end
 
   test "updating PERFECT scores, sorts, and pays a unique leader the full pot" do
