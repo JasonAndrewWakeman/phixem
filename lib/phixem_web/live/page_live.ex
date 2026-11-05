@@ -59,7 +59,10 @@ defmodule PhixemWeb.PageLive do
         || TOTAL POT: <span class="header-stat-value">{pot(@entries)}</span>
       </span>
     </h1>
-    <p class="muted">
+    <p :if={@week && @week.entries_locked} class="week-locked-banner">
+      Week locked! the current entries and total pot are final for week {@week.number}
+    </p>
+    <p :if={!(@week && @week.entries_locked)} class="muted">
       PERFECT is updated as results come in.
       The list sorts based on # correct, if there is a tie, all players with the same number of correct at least win a free entry next week, and the person closest to the tie breaker total score for MNF wins the remainder of the total pot.
       If multiple players are equally close or exact to the tie-breaker the pot is split equally.
@@ -112,7 +115,7 @@ defmodule PhixemWeb.PageLive do
 
   defp pot(entries) do
     case Enum.find(entries, & &1.winners_row) do
-      %{coins_won: coins} when is_integer(coins) -> coins
+      %{coins_won: coins} when is_number(coins) -> format_coins(coins)
       _ -> 0
     end
   end
@@ -143,5 +146,20 @@ defmodule PhixemWeb.PageLive do
 
   defp tie_breaker_cell(_week, entry), do: entry.tie_breaker || ""
 
-  defp coins_cell(_week, entry), do: blank(entry.coins_won)
+  defp coins_cell(_week, entry), do: format_coins(entry.coins_won)
+
+  defp format_coins(nil), do: ""
+  defp format_coins(n) when is_integer(n), do: n
+
+  defp format_coins(n) when is_float(n) do
+    rounded = Float.round(n, 1)
+
+    if rounded == Float.round(rounded, 0) do
+      trunc(rounded)
+    else
+      rounded
+    end
+  end
+
+  defp format_coins(n), do: n
 end

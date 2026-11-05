@@ -19,6 +19,7 @@ defmodule PhixemWeb.Router do
     post "/broncosAdmin", AdminController, :create
     post "/broncosAdmin/perfect", AdminController, :save_perfect
     post "/broncosAdmin/entries", AdminController, :save_entry
+    post "/broncosAdmin/lock", AdminController, :lock_week
     live "/", PageLive
   end
 end

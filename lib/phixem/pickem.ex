@@ -8,7 +8,7 @@ defmodule Phixem.Pickem do
   alias Phixem.Repo
   alias Phixem.Pickem.{Entry, Week}
 
-  @entry_coins 9
+  @entry_coins 8.5
   @tie_free_entry 10
 
   def entry_coins, do: @entry_coins
@@ -85,6 +85,9 @@ defmodule Phixem.Pickem do
       nil ->
         {:error, :not_found}
 
+      %{entries_locked: true} ->
+        {:error, :week_locked}
+
       week ->
         username = attrs |> Map.get("username", "") |> normalize_username()
         winners = Map.get(attrs, "winners") || Map.get(attrs, :winners) || %{}
@@ -111,6 +114,29 @@ defmodule Phixem.Pickem do
   end
 
   def create_entry(_, _), do: {:error, :invalid}
+
+  def lock_week(week_number) do
+    case get_week(week_number) do
+      nil ->
+        {:error, :not_found}
+
+      %{entries_locked: true} ->
+        {:error, :already_locked}
+
+      week ->
+        week
+        |> Week.changeset(%{entries_locked: true})
+        |> Repo.update()
+        |> case do
+          {:ok, locked} ->
+            Phoenix.PubSub.broadcast(Phixem.PubSub, "pickem", {:week_updated, locked.number})
+            {:ok, locked}
+
+          {:error, changeset} ->
+            {:error, changeset}
+        end
+    end
+  end
 
   defp upsert_week!(data) do
     existing = Repo.get_by(Week, number: data["number"])
@@ -497,13 +523,14 @@ defmodule Phixem.Pickem do
 
   defp split_coins(players, total) do
     count = length(players)
-    base = div(total, count)
-    extra = rem(total, count)
+    halves = round(total * 2)
+    base = div(halves, count)
+    extra = rem(halves, count)
 
     players
     |> Enum.with_index()
     |> Map.new(fn {player, index} ->
-      {player.id, base + if(index < extra, do: 1, else: 0)}
+      {player.id, (base + if(index < extra, do: 1, else: 0)) / 2}
     end)
   end
 

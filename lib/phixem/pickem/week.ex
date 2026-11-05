@@ -8,6 +8,7 @@ defmodule Phixem.Pickem.Week do
     field :title, :string
     field :matchups, :string
     field :complete, :boolean, default: false
+    field :entries_locked, :boolean, default: false
     field :mnf_score, :string
     field :tie_breaker_value, :integer
     field :starts_on, :date
@@ -25,6 +26,7 @@ defmodule Phixem.Pickem.Week do
       :title,
       :matchups,
       :complete,
+      :entries_locked,
       :mnf_score,
       :tie_breaker_value,
       :starts_on

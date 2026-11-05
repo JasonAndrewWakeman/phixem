@@ -133,7 +133,24 @@ defmodule Phixem.PickemTest do
     assert Enum.count(Pickem.get_week(8).entries, &(&1.username == "Neo")) == 1
   end
 
-  test "create_entry adds a player row and gives PERFECT 9 coins per entry" do
+  test "lock_week blocks new entries and cannot be undone" do
+    week = Pickem.get_week(8)
+    picks = home_picks(week)
+
+    assert {:ok, locked} = Pickem.lock_week(8)
+    assert locked.entries_locked
+    assert {:error, :already_locked} = Pickem.lock_week(8)
+    assert {:error, :week_locked} =
+             Pickem.create_entry(8, %{
+               "username" => "Neo",
+               "winners" => picks,
+               "tie_breaker" => "41"
+             })
+
+    assert Enum.find(Pickem.get_week(8).entries, &(&1.username == "Neo")) == nil
+  end
+
+  test "create_entry adds a player row and gives PERFECT 8.5 coins per entry" do
     week = Pickem.get_week(8)
     picks = home_picks(week)
 
@@ -151,14 +168,14 @@ defmodule Phixem.PickemTest do
 
     week = Pickem.get_week(8)
     perfect = Enum.find(week.entries, & &1.winners_row)
-    assert perfect.coins_won == 90
+    assert perfect.coins_won == 85.0
     assert Enum.count(week.entries, &(&1.winners_row == false)) == 10
     assert Enum.all?(week.entries, fn entry -> entry.winners_row or is_nil(entry.coins_won) end)
 
     {:ok, _} = Pickem.save_perfect_winners(8, home_picks(week), "45")
     week = Pickem.get_week(8)
     players = Enum.reject(week.entries, & &1.winners_row)
-    assert Enum.all?(players, &(is_integer(&1.coins_won) and &1.coins_won >= 0))
+    assert Enum.all?(players, &(is_number(&1.coins_won) and &1.coins_won >= 0))
   end
 
   test "updating PERFECT scores, sorts, and pays a unique leader the full pot" do
@@ -187,9 +204,9 @@ defmodule Phixem.PickemTest do
     assert neo.username == "Neo"
     assert trinity.username == "Trinity"
     assert neo.correct_choices > trinity.correct_choices
-    assert neo.coins_won == 18
-    assert trinity.coins_won == 0
-    assert perfect.coins_won == 18
+    assert neo.coins_won == 17.0
+    assert trinity.coins_won == 0.0
+    assert perfect.coins_won == 17.0
   end
 
   test "tied # correct get a free entry and the closest MNF guess wins the remainder" do
@@ -209,10 +226,10 @@ defmodule Phixem.PickemTest do
 
     assert neo.correct_choices == trinity.correct_choices
     assert neo.correct_choices > morpheus.correct_choices
-    # pot 27, two leaders get 10 each, remainder 7 to closest (Neo)
-    assert neo.coins_won == 17
-    assert trinity.coins_won == 10
-    assert morpheus.coins_won == 0
+    # pot 25.5, two leaders get 10 each, remainder 5.5 to closest (Neo)
+    assert neo.coins_won == 15.5
+    assert trinity.coins_won == 10.0
+    assert morpheus.coins_won == 0.0
     assert names(week) |> Enum.map(& &1.username) == ["PERFECT", "Neo", "Trinity", "Morpheus"]
   end
 
@@ -232,11 +249,11 @@ defmodule Phixem.PickemTest do
     neo = Enum.find(week.entries, &(&1.username == "Neo"))
     trinity = Enum.find(week.entries, &(&1.username == "Trinity"))
     morpheus = Enum.find(week.entries, &(&1.username == "Morpheus"))
-    # pot 27, two leaders 10 each, remainder 7 split 4/3
-    assert neo.coins_won + trinity.coins_won == 27
-    assert neo.coins_won in [13, 14]
-    assert trinity.coins_won in [13, 14]
-    assert morpheus.coins_won == 0
+    # pot 25.5, two leaders 10 each, remainder 5.5 split 3/2.5
+    assert neo.coins_won + trinity.coins_won == 25.5
+    assert neo.coins_won in [12.5, 13.0]
+    assert trinity.coins_won in [12.5, 13.0]
+    assert morpheus.coins_won == 0.0
   end
 
   defp home_picks(week) do

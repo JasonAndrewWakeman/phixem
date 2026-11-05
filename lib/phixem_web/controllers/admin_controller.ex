@@ -4,7 +4,7 @@ defmodule PhixemWeb.AdminController do
   alias Phixem.Pickem
   alias Phixem.Pickem.Entry
 
-  plug :require_admin when action in [:save_perfect, :save_entry]
+  plug :require_admin when action in [:save_perfect, :save_entry, :lock_week]
 
   def show(conn, params) do
     if get_session(conn, :broncos_admin) do
@@ -87,8 +87,36 @@ defmodule PhixemWeb.AdminController do
       {:error, :reserved_name} ->
         redirect_entry_error(conn, params, "PERFECT is reserved for the winners row.")
 
+      {:error, :week_locked} ->
+        redirect_entry_error(
+          conn,
+          params,
+          "Week #{week_number} is locked. No new entries can be added."
+        )
+
       {:error, :invalid_winners} ->
         redirect_entry_error(conn, params, "Each pick must be one of the two teams in that matchup.")
+    end
+  end
+
+  def lock_week(conn, params) do
+    week_number = params["week"]
+
+    case Pickem.lock_week(week_number) do
+      {:ok, week} ->
+        conn
+        |> put_flash(:info, "Week #{week.number} is locked.")
+        |> redirect(to: ~p"/broncosAdmin?week=#{week.number}")
+
+      {:error, :not_found} ->
+        conn
+        |> put_flash(:error, "That week was not found.")
+        |> redirect(to: ~p"/broncosAdmin")
+
+      {:error, :already_locked} ->
+        conn
+        |> put_flash(:error, "Week #{week_number} is already locked.")
+        |> redirect(to: ~p"/broncosAdmin?week=#{week_number}")
     end
   end
 

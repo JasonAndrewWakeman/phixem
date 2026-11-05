@@ -26,6 +26,10 @@ defmodule PhixemWeb.AdminControllerTest do
     assert html =~ ~s(id="admin-ok")
     assert html =~ "Create entry"
     assert html =~ "SELECT WINNERS"
+    assert html =~ "Lock Week"
+    assert html =~ "data-confirm"
+    assert html =~ "Week 1"
+    assert html =~ "This is not reversible"
     assert html =~ "NE@SEA"
     assert html =~ ~s(value="SEA")
     assert html =~ "TIE"
@@ -108,7 +112,7 @@ defmodule PhixemWeb.AdminControllerTest do
     assert neo.tie_breaker == "41"
     assert is_nil(neo.coins_won)
     perfect = Enum.find(week.entries, & &1.winners_row)
-    assert perfect.coins_won == 9
+    assert perfect.coins_won == 8.5
   end
 
   test "admin rejects a duplicate name for the same week", %{conn: conn} do
@@ -163,6 +167,39 @@ defmodule PhixemWeb.AdminControllerTest do
     refute html =~ "Missing: Name"
     assert html =~ ~s(value="Neo")
     assert html =~ ~s(value="GB")
+    assert Enum.find(Pickem.get_week(8).entries, &(&1.username == "Neo")) == nil
+  end
+
+  test "admin can lock a week and then cannot add entries", %{conn: conn} do
+    Pickem.seed!()
+    week = Pickem.get_week(8)
+    winners = home_picks(week)
+    conn = unlock(conn)
+
+    conn = post(conn, ~p"/broncosAdmin/lock", %{"week" => "8"})
+    assert redirected_to(conn) == ~p"/broncosAdmin?week=8"
+    assert Pickem.get_week(8).entries_locked
+
+    conn = get(recycle(conn), ~p"/broncosAdmin?week=8")
+    html = html_response(conn, 200)
+    assert html =~ "Week locked! the current entries and total pot are final for week 8"
+    refute html =~ "Create entry"
+    refute html =~ "Lock Week"
+    assert html =~ "SELECT WINNERS"
+
+    conn =
+      recycle(conn)
+      |> post(~p"/broncosAdmin/entries", %{
+        "week" => "8",
+        "username" => "Neo",
+        "tie_breaker" => "41",
+        "winners" => winners
+      })
+
+    assert redirected_to(conn) == ~p"/broncosAdmin?week=8"
+    conn = get(recycle(conn), ~p"/broncosAdmin?week=8")
+    html = html_response(conn, 200)
+    assert html =~ "Week 8 is locked. No new entries can be added."
     assert Enum.find(Pickem.get_week(8).entries, &(&1.username == "Neo")) == nil
   end
 

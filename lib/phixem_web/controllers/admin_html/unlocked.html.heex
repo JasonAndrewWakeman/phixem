@@ -14,7 +14,11 @@
     </a>
   </div>
 
-  <section :if={@week} class="entry-form">
+  <p :if={@week && @week.entries_locked} class="week-locked-banner">
+    Week locked! the current entries and total pot are final for week {@week.number}
+  </p>
+
+  <section :if={@week && !@week.entries_locked} class="entry-form">
     <h2>Create entry — Week {@week.number}</h2>
     <div class="admin-actions">
       <button type="button" disabled>Upload image / camera</button>
@@ -66,7 +70,8 @@
     </form>
   </section>
 
-  <details :if={@week} class="perfect-panel" open={@show_perfect}>
+  <div :if={@week} class="week-toolbar">
+  <details class="perfect-panel" open={@show_perfect}>
     <summary class="select-winners">SELECT WINNERS</summary>
     <section class="perfect-form">
       <h2>PERFECT — Week {@week.number}</h2>
@@ -121,4 +126,18 @@
       </form>
     </section>
   </details>
+
+  <form :if={!@week.entries_locked} action={~p"/broncosAdmin/lock"} method="post" class="lock-week-form">
+    <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+    <input type="hidden" name="week" value={@week.number} />
+    <button
+      type="submit"
+      class="lock-week"
+      data-confirm={"Are you sure you want to lock the current week's entries (Week #{@week.number})? This is not reversible and no new entries for the week will be able to be added."}
+      onclick="return confirm(this.dataset.confirm)"
+    >
+      Lock Week
+    </button>
+  </form>
+  </div>
 </section>

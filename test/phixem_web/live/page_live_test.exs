@@ -31,6 +31,11 @@ defmodule PhixemWeb.PageLiveTest do
     assert {:ok, _} = Phixem.Pickem.save_perfect_winners(8, %{"CAR@GB" => "GB"}, "42")
     html = render_click(view, "select_week", %{"number" => "8"})
     assert html =~ "42"
+
+    assert {:ok, _} = Phixem.Pickem.lock_week(8)
+    html = render_click(view, "select_week", %{"number" => "8"})
+    assert html =~ "Week locked! the current entries and total pot are final for week 8"
+    refute html =~ "The list sorts based on # correct"
   end
 
   test "GET /health still works", %{conn: conn} do

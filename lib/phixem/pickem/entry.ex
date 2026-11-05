@@ -8,8 +8,8 @@ defmodule Phixem.Pickem.Entry do
     field :picks, :string, default: "{}"
     field :tie_breaker, :string
     field :correct_choices, :integer
-    field :coins_won, :integer
-    field :total_coins_won, :integer
+    field :coins_won, :float
+    field :total_coins_won, :float
 
     belongs_to :week, Phixem.Pickem.Week
 
