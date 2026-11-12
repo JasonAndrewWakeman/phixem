@@ -30,4 +30,8 @@ config :logger, :default_formatter,
 
 config :phoenix, :json_library, Jason
 
+config :phixem, Phixem.ScorePoller,
+  enabled: true,
+  interval_ms: 900_000
+
 import_config "#{config_env()}.exs"

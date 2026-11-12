@@ -14,6 +14,8 @@ config :phixem,
   broncos_admin_salt: "phixem-broncos-admin-test",
   broncos_admin_hash: "SW9ptHUL03LtZBo1B0XB//YdqajVHLoDjsKqf9F9414="
 
+config :phixem, Phixem.ScorePoller, enabled: false
+
 config :logger, level: :warning
 config :phoenix, :plug_init_mode, :runtime
 

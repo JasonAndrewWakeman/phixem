@@ -42,7 +42,7 @@ defmodule Phixem.Pickem do
         nil
 
       weeks ->
-        sunday = pickem_sunday(eastern_now(now))
+        sunday = Phixem.Eastern.pickem_sunday(now)
 
         cond do
           week = Enum.find(weeks, &(&1.starts_on == sunday)) ->
@@ -98,6 +98,31 @@ defmodule Phixem.Pickem do
   end
 
   def highlight_roles(_), do: %{}
+
+  def tie_breaker_ready?(%Week{} = week) do
+    perfect =
+      case week.entries do
+        entries when is_list(entries) -> Enum.find(entries, & &1.winners_row)
+        _ -> perfect_entry(week)
+      end
+
+    is_integer(actual_tie_breaker(week, perfect))
+  end
+
+  def week_results_final?(%Week{} = week) do
+    week = get_week(week.number) || week
+    matchups = Week.matchup_list(week)
+    perfect = Enum.find(week.entries, & &1.winners_row)
+    picks = perfect_picks(perfect)
+
+    filled =
+      Enum.all?(matchups, fn matchup ->
+        team = Map.get(picks, matchup, "")
+        is_binary(team) and team != ""
+      end)
+
+    filled and tie_breaker_ready?(week)
+  end
 
   def seed_if_empty! do
     seed_season!()
@@ -638,42 +663,4 @@ defmodule Phixem.Pickem do
   end
 
   defp score_total(_), do: nil
-
-  # After Tuesday 12:00 Eastern, show the week whose Sunday is next.
-  # Sunday–Tuesday morning stay on the Sunday that just happened (MNF still in play).
-  defp pickem_sunday(%DateTime{} = eastern) do
-    date = DateTime.to_date(eastern)
-    weekday = Date.day_of_week(date)
-
-    cond do
-      weekday == 7 -> date
-      weekday == 1 -> Date.add(date, -1)
-      weekday == 2 and eastern.hour < 12 -> Date.add(date, -2)
-      weekday == 2 -> Date.add(date, 5)
-      true -> Date.add(date, 7 - weekday)
-    end
-  end
-
-  defp eastern_now(%DateTime{} = utc) do
-    utc = DateTime.shift_zone!(utc, "Etc/UTC")
-    offset_hours = if us_eastern_dst?(utc), do: -4, else: -5
-    DateTime.add(utc, offset_hours * 3600, :second)
-  end
-
-  defp us_eastern_dst?(%DateTime{} = utc) do
-    year = utc.year
-    dst_start = utc_at(nth_sunday(year, 3, 2), ~T[07:00:00])
-    dst_end = utc_at(nth_sunday(year, 11, 1), ~T[06:00:00])
-
-    DateTime.compare(utc, dst_start) != :lt and DateTime.compare(utc, dst_end) == :lt
-  end
-
-  defp nth_sunday(year, month, n) do
-    first = Date.new!(year, month, 1)
-    Date.add(first, rem(7 - Date.day_of_week(first), 7) + 7 * (n - 1))
-  end
-
-  defp utc_at(%Date{} = date, %Time{} = time) do
-    DateTime.from_naive!(NaiveDateTime.new!(date, time), "Etc/UTC")
-  end
 end

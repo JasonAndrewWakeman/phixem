@@ -15,7 +15,9 @@ defmodule Phixem.Application do
          repos: Application.fetch_env!(:phixem, :ecto_repos), skip: skip_migrations?()},
         {DNSCluster, query: Application.get_env(:phixem, :dns_cluster_query) || :ignore},
         {Phoenix.PubSub, name: Phixem.PubSub},
+        {Task.Supervisor, name: Phixem.TaskSupervisor},
         litestream_child(),
+        score_poller_child(),
         PhixemWeb.Endpoint
       ]
       |> Enum.reject(&is_nil/1)
@@ -30,6 +32,14 @@ defmodule Phixem.Application do
   def config_change(changed, _new, removed) do
     PhixemWeb.Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  defp score_poller_child do
+    opts = Application.get_env(:phixem, Phixem.ScorePoller, [])
+
+    if Keyword.get(opts, :enabled, true) do
+      {Phixem.ScorePoller, opts}
+    end
   end
 
   defp litestream_child do
