@@ -34,19 +34,70 @@ defmodule Phixem.Pickem do
 
   def get_week(_), do: nil
 
-  def default_week_number do
+  def default_week_number(now \\ DateTime.utc_now()) do
     weeks = list_weeks()
 
-    cond do
-      weeks == [] -> nil
-      week = Enum.find(weeks, &(&1.complete == false)) -> week.number
-      true -> List.last(weeks).number
+    case weeks do
+      [] ->
+        nil
+
+      weeks ->
+        sunday = pickem_sunday(eastern_now(now))
+
+        cond do
+          week = Enum.find(weeks, &(&1.starts_on == sunday)) ->
+            week.number
+
+          Date.compare(sunday, hd(weeks).starts_on) == :lt ->
+            hd(weeks).number
+
+          true ->
+            weeks
+            |> Enum.filter(&(Date.compare(&1.starts_on, sunday) != :gt))
+            |> List.last()
+            |> then(fn
+              nil -> List.last(weeks).number
+              week -> week.number
+            end)
+        end
     end
   end
 
   def empty? do
     Repo.aggregate(Week, :count) == 0
   end
+
+  def highlight_roles(%Week{entries: entries} = week) when is_list(entries) do
+    perfect = Enum.find(entries, & &1.winners_row)
+    players = Enum.reject(entries, & &1.winners_row)
+    actual = actual_tie_breaker(week, perfect)
+
+    cond do
+      not is_integer(actual) or players == [] ->
+        %{}
+
+      true ->
+        max_correct = players |> Enum.map(&(&1.correct_choices || 0)) |> Enum.max()
+        leaders = Enum.filter(players, &((&1.correct_choices || 0) == max_correct))
+
+        first_ids =
+          if length(leaders) == 1 do
+            MapSet.new([hd(leaders).id])
+          else
+            leaders
+            |> Enum.map(&{&1, &1.correct_choices || 0})
+            |> closest_tiebreakers(actual)
+            |> MapSet.new(& &1.id)
+          end
+
+        Map.new(leaders, fn player ->
+          role = if MapSet.member?(first_ids, player.id), do: :first, else: :silver
+          {player.id, role}
+        end)
+    end
+  end
+
+  def highlight_roles(_), do: %{}
 
   def seed_if_empty! do
     seed_season!()
@@ -587,4 +638,42 @@ defmodule Phixem.Pickem do
   end
 
   defp score_total(_), do: nil
+
+  # After Tuesday 12:00 Eastern, show the week whose Sunday is next.
+  # Sunday–Tuesday morning stay on the Sunday that just happened (MNF still in play).
+  defp pickem_sunday(%DateTime{} = eastern) do
+    date = DateTime.to_date(eastern)
+    weekday = Date.day_of_week(date)
+
+    cond do
+      weekday == 7 -> date
+      weekday == 1 -> Date.add(date, -1)
+      weekday == 2 and eastern.hour < 12 -> Date.add(date, -2)
+      weekday == 2 -> Date.add(date, 5)
+      true -> Date.add(date, 7 - weekday)
+    end
+  end
+
+  defp eastern_now(%DateTime{} = utc) do
+    utc = DateTime.shift_zone!(utc, "Etc/UTC")
+    offset_hours = if us_eastern_dst?(utc), do: -4, else: -5
+    DateTime.add(utc, offset_hours * 3600, :second)
+  end
+
+  defp us_eastern_dst?(%DateTime{} = utc) do
+    year = utc.year
+    dst_start = utc_at(nth_sunday(year, 3, 2), ~T[07:00:00])
+    dst_end = utc_at(nth_sunday(year, 11, 1), ~T[06:00:00])
+
+    DateTime.compare(utc, dst_start) != :lt and DateTime.compare(utc, dst_end) == :lt
+  end
+
+  defp nth_sunday(year, month, n) do
+    first = Date.new!(year, month, 1)
+    Date.add(first, rem(7 - Date.day_of_week(first), 7) + 7 * (n - 1))
+  end
+
+  defp utc_at(%Date{} = date, %Time{} = time) do
+    DateTime.from_naive!(NaiveDateTime.new!(date, time), "Etc/UTC")
+  end
 end

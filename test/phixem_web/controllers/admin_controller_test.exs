@@ -17,6 +17,13 @@ defmodule PhixemWeb.AdminControllerTest do
     refute html =~ ~s(id="admin-ok")
   end
 
+  test "unlocked admin defaults to the current pickem week", %{conn: conn} do
+    Pickem.seed!()
+    conn = unlock(conn) |> get(~p"/broncosAdmin")
+    html = html_response(conn, 200)
+    assert html =~ "Create entry — Week #{Pickem.default_week_number()}"
+  end
+
   test "unlocked admin hides PERFECT until SELECT WINNERS and lists it after the entry form", %{
     conn: conn
   } do

@@ -10,7 +10,11 @@ defmodule PhixemWeb.PageLive do
       Phoenix.PubSub.subscribe(Phixem.PubSub, "pickem")
     end
 
-    {:ok, assign(socket, :weeks, Pickem.list_weeks())}
+    {:ok,
+     socket
+     |> assign(:weeks, Pickem.list_weeks())
+     |> assign(:search_query, "")
+     |> assign(:search_ids, [])}
   end
 
   @impl true
@@ -22,6 +26,16 @@ defmodule PhixemWeb.PageLive do
   @impl true
   def handle_event("select_week", %{"number" => number}, socket) do
     {:noreply, push_patch(socket, to: ~p"/?week=#{number}")}
+  end
+
+  def handle_event("search_entries", params, socket) do
+    query = params["q"] || params["value"] || ""
+
+    {:noreply,
+     socket
+     |> assign(:search_query, query)
+     |> apply_search()
+     |> scroll_to_match()}
   end
 
   @impl true
@@ -39,6 +53,8 @@ defmodule PhixemWeb.PageLive do
     |> assign(:week, nil)
     |> assign(:matchups, [])
     |> assign(:entries, [])
+    |> assign(:highlights, %{})
+    |> apply_search()
   end
 
   defp assign_week(socket, week) do
@@ -47,6 +63,34 @@ defmodule PhixemWeb.PageLive do
     |> assign(:week, week)
     |> assign(:matchups, Week.matchup_list(week))
     |> assign(:entries, week.entries)
+    |> assign(:highlights, Pickem.highlight_roles(week))
+    |> apply_search()
+  end
+
+  defp apply_search(socket) do
+    query = socket.assigns[:search_query] || ""
+    needle = query |> String.trim() |> String.downcase()
+    entries = socket.assigns[:entries] || []
+
+    ids =
+      if String.length(needle) < 2 do
+        []
+      else
+        entries
+        |> Enum.filter(fn entry ->
+          entry.username |> to_string() |> String.downcase() |> String.contains?(needle)
+        end)
+        |> Enum.map(& &1.id)
+      end
+
+    assign(socket, :search_ids, ids)
+  end
+
+  defp scroll_to_match(socket) do
+    case socket.assigns.search_ids do
+      [id | _] -> push_event(socket, "scroll_into_view", %{id: "entry-#{id}"})
+      _ -> socket
+    end
   end
 
   @impl true
@@ -84,6 +128,17 @@ defmodule PhixemWeb.PageLive do
     <p :if={@week} class="muted">Sunday {@week.starts_on}</p>
     <p :if={is_nil(@week)} class="muted">No week selected.</p>
 
+    <form :if={@week} id="entry-search" class="entry-search" phx-change="search_entries" phx-submit="search_entries">
+      <input
+        type="search"
+        name="q"
+        value={@search_query}
+        placeholder="search entry by name"
+        autocomplete="off"
+        phx-debounce="150"
+      />
+    </form>
+
     <div :if={@week} class="board">
       <table>
         <thead>
@@ -96,7 +151,11 @@ defmodule PhixemWeb.PageLive do
           </tr>
         </thead>
         <tbody>
-          <tr :for={entry <- @entries} class={if entry.winners_row, do: "winners"}>
+          <tr
+            :for={entry <- @entries}
+            id={"entry-#{entry.id}"}
+            class={entry_row_class(entry, @highlights, @search_ids)}
+          >
             <th>{entry.username}</th>
             <td :for={matchup <- @matchups}>{pick(entry, matchup)}</td>
             <td>{tie_breaker_cell(@week, entry)}</td>
@@ -107,6 +166,19 @@ defmodule PhixemWeb.PageLive do
       </table>
     </div>
     """
+  end
+
+  defp entry_row_class(entry, highlights, search_ids) do
+    place =
+      cond do
+        entry.winners_row -> "winners"
+        Map.get(highlights, entry.id) == :first -> "place-first"
+        Map.get(highlights, entry.id) == :silver -> "place-silver"
+        true -> nil
+      end
+
+    hit = entry.id in search_ids && "search-hit"
+    [place, hit]
   end
 
   defp player_count(entries) do

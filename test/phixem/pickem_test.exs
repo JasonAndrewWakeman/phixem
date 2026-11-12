@@ -27,7 +27,7 @@ defmodule Phixem.PickemTest do
     week8 = Pickem.get_week(8)
     refute week8.complete
     assert "CAR@GB" in Phixem.Pickem.Week.matchup_list(week8)
-    assert Pickem.default_week_number() == 8
+    assert Pickem.default_week_number(~U[2026-10-28 18:00:00Z]) == 8
     week8_perfect = Enum.find(week8.entries, & &1.winners_row)
     assert Phixem.Pickem.Entry.pick_map(week8_perfect) == %{}
     assert week8_perfect.tie_breaker in [nil, ""]
@@ -92,6 +92,18 @@ defmodule Phixem.PickemTest do
     assert {:ok, entry} = Pickem.save_perfect_winners(8, %{"CAR@GB" => "TIE"})
     assert Phixem.Pickem.Entry.pick_map(entry)["CAR@GB"] == ""
     assert entry.correct_choices == 0
+  end
+
+  test "default_week_number flips to the next Sunday after Tuesday noon Eastern" do
+    # Week 9 is Sunday Nov 8; week 10 is Sunday Nov 15.
+    # Tuesday Nov 10 2026 is EST (UTC-5).
+    assert Pickem.default_week_number(~U[2026-11-10 16:59:00Z]) == 9
+    assert Pickem.default_week_number(~U[2026-11-10 17:00:00Z]) == 10
+    assert Pickem.default_week_number(~U[2026-11-11 18:00:00Z]) == 10
+    assert Pickem.default_week_number(~U[2026-11-15 17:00:00Z]) == 10
+    assert Pickem.default_week_number(~U[2026-11-16 17:00:00Z]) == 10
+    assert Pickem.default_week_number(~U[2026-11-17 16:59:00Z]) == 10
+    assert Pickem.default_week_number(~U[2026-11-17 17:00:00Z]) == 11
   end
 
   test "create_entry requires a pick for every matchup and a tie-breaker" do
@@ -207,6 +219,9 @@ defmodule Phixem.PickemTest do
     assert neo.coins_won == 17.0
     assert trinity.coins_won == 0.0
     assert perfect.coins_won == 17.0
+    roles = Pickem.highlight_roles(Pickem.get_week(8))
+    assert roles[neo.id] == :first
+    refute Map.has_key?(roles, trinity.id)
   end
 
   test "tied # correct get a free entry and the closest MNF guess wins the remainder" do
@@ -231,6 +246,10 @@ defmodule Phixem.PickemTest do
     assert trinity.coins_won == 10.0
     assert morpheus.coins_won == 0.0
     assert names(week) |> Enum.map(& &1.username) == ["PERFECT", "Neo", "Trinity", "Morpheus"]
+    roles = Pickem.highlight_roles(week)
+    assert roles[neo.id] == :first
+    assert roles[trinity.id] == :silver
+    refute Map.has_key?(roles, morpheus.id)
   end
 
   test "equally close tie-breakers split the remainder" do
@@ -254,6 +273,10 @@ defmodule Phixem.PickemTest do
     assert neo.coins_won in [12.5, 13.0]
     assert trinity.coins_won in [12.5, 13.0]
     assert morpheus.coins_won == 0.0
+    roles = Pickem.highlight_roles(week)
+    assert roles[neo.id] == :first
+    assert roles[trinity.id] == :first
+    refute Map.has_key?(roles, morpheus.id)
   end
 
   defp home_picks(week) do
